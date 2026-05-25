@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<head>
+<meta charset=utf-8>
+<title>chdman web test</title>
+<meta name=color-scheme content="dark light">
+<meta name=viewport content=width=device-width,initial-scale=1.0>
+<script src=chdman.js></script>
+<style>
+body{
+	max-width:40em;
+	margin-left:auto;
+	margin-right:auto;
+}
+</style>
+</head>
+<body>
+<h1>chdman webapp</h1>
+<p>This webapp doesn't have the most convenient interface, but it aims to give the user the greatest amount of control.
+<p>Open <a href=https://www.computerhope.com/issues/ch002153.htm>Developer Tools</a> to view the log output of chdman.
+<p>When conversion is in progress (as indicated by the "Status" area) this webpage will freeze up and become nonresponsive until conversion is complete.
+<p>When typing your arguments (which are the commands sent to chdman), if you have a file name with spaces in it, wrap that file name in quotes.<br>
+For example, if you have a file named "Vib-Ribbon (Europe) (En,Fr,De,Es,It).cue", and you want to compress it to chd, your arguments should be <kbd>createcd -i "Vib-Ribbon (Europe) (En,Fr,De,Es,It).cue" -o "Vib-Ribbon (Europe) (En,Fr,De,Es,It).chd"</kbd>
+
+<br><br>
+<label for="disc-select-file">Upload a disc image:</label>
+<input type=file id="disc-select-file" multiple />
+<br>
+<label for="type-arguments">Type arguments:</label><br>
+<textarea id="type-arguments" placeholder="help createcd" rows="5" cols="80"></textarea>
+<br>
+<p>Usage info:
+<pre><samp>
+chdman - MAME Compressed Hunks of Data (CHD) manager
+Usage:
+   chdman info: displays information about a CHD
+   chdman verify: verifies a CHD's integrity
+   chdman createraw: create a raw CHD from the input file
+   chdman createhd: create a hard disk CHD from the input file
+   chdman createcd: create a CD CHD from the input file
+   chdman createdvd: create a DVD CHD from the input file
+   chdman createld: create a laserdisc CHD from the input file
+   chdman extractraw: extract raw file from a CHD input file
+   chdman extracthd: extract raw hard disk file from a CHD input file
+   chdman extractcd: extract CD file from a CHD input file
+   chdman extractdvd: extract DVD file from a CHD input file
+   chdman extractld: extract laserdisc AVI from a CHD input file
+   chdman copy: copy data from one CHD to another of the same type
+   chdman addmeta: add metadata to the CHD
+   chdman delmeta: remove metadata from the CHD
+   chdman dumpmeta: dump metadata from the CHD to stdout or to a file
+   chdman listtemplates: list hard disk templates
+
+For help with any command, run:
+   chdman help &lt;command&gt;
+</samp></pre>
+</p>
+<button id=run>Run</button>
+<br>
+<label for=status>Status:</label> <output id=status></output>
+<br>
+<button id=dl-file>Download Output Files</button>
+<!--
+<br>
+<label for=cmd-out>chdman command-line output:</label><br>
+<output id=cmd-out></output><br>
+<button id=clr-cmd>clear output</button>
+-->
+<script>
+var chdmanModule = "empty";
+const statusElem=document.getElementById("status");
+async function runWrapper() {
+	var fileInput=document.getElementById("disc-select-file")
+	const inFileArrayBufs = new Map();
+	for (let inFile of fileInput.files) { // TODO: use web workers?
+		inFileArrayBufs.set(inFile.name, await inFile.arrayBuffer());
+	}
+	var inputArgs = document.getElementById("type-arguments").value.replace(/ (?=([^"]*"[^"]*")*[^"]*$)/g, "\u{40000}").replaceAll('"', '').split("\u{40000}"); // Source - https://stackoverflow.com/a/6464500
+	// Posted by Jens, modified by community. See post 'Timeline' for change history
+	// Retrieved 2026-05-24, License - CC BY-SA 3.0
+	console.debug("Arguments: "+inputArgs);
+	const moduleOptions = {
+		arguments: inputArgs,
+		preRun: () => {
+			for (let inFile of fileInput.files) { // use const instead of let?
+				moduleOptions.FS.writeFile(inFile.name, new Uint8Array(inFileArrayBufs.get(inFile.name)));
+			}
+		},
+		postRun: () => {
+			for (let inFile of fileInput.files) { // delete all input files, so that the download button doesn't download them.
+				moduleOptions.FS.unlink(inFile.name);
+			}
+		},
+	};
+	statusElem.value = "Running...";
+	const start = performance.now()
+	chdmanModule = await createMameToolModule(moduleOptions);
+	const end = performance.now()
+	statusElem.value = "Complete";
+	console.debug('Time elapsed: '+(end-start)+" ms.")
+}
+function dlFileWrapper(){ // download all files in the current MEMFS directory.
+	const fileNameArray = chdmanModule.FS.readdir(".");
+	console.debug("fileNameArray: "+fileNameArray);
+	for (let fileName of fileNameArray){
+		if (fileName !== "." && fileName !== ".." && chdmanModule.FS.isFile(chdmanModule.FS.stat(fileName).mode)){
+			let output = chdmanModule.FS.readFile(fileName, {encoding: "binary"});
+			download(new File([output], fileName));
+		}
+	}
+}
+document.querySelector("button#run").addEventListener("click", runWrapper)
+document.querySelector("button#dl-file").addEventListener("click", dlFileWrapper)
+
+function download(file) { // to do: replace the file argument with blob and name?
+	const link = document.createElement('a')
+	const url = URL.createObjectURL(file)
+
+	link.href = url
+	link.download = file.name
+	document.body.appendChild(link)
+	link.click()
+
+	document.body.removeChild(link)
+	window.URL.revokeObjectURL(url)
+}
+</script>
