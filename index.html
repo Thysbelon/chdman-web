@@ -7,27 +7,38 @@
 <script src=chdman.js></script>
 <style>
 body{
+	overflow-x:clip;
+}
+div.grid-parent{
+	overflow-x: hidden;
+	display:grid;
+	grid-template-columns: repeat(auto-fill, minmax(min-content, 39.6em));
+	row-gap:1em;
+}
+div.grid-child{
+	display:block;
 	max-width:40em;
-	margin-left:auto;
-	margin-right:auto;
+	max-height:100vh;
+}
+output#cmd-out{
+	white-space: pre-line;
+	font-family: monospace;
+	height:50em;
+	max-height:50em;
+	width:40em;
+	display:block;
+	overflow:scroll;
 }
 </style>
 </head>
 <body>
+<div class=grid-parent>
+<div class=grid-child>
 <h1>chdman webapp</h1>
 <p>This webapp doesn't have the most convenient interface, but it aims to give the user the greatest amount of control.
-<p>Open <a href=https://www.computerhope.com/issues/ch002153.htm>Developer Tools</a> to view the log output of chdman.
 <p>When conversion is in progress (as indicated by the "Status" area) this webpage will freeze up and become nonresponsive until conversion is complete.
 <p>When typing your arguments (which are the commands sent to chdman), if you have a file name with spaces in it, wrap that file name in quotes.<br>
 For example, if you have a file named "Vib-Ribbon (Europe) (En,Fr,De,Es,It).cue", and you want to compress it to chd, your arguments should be <kbd>createcd -i "Vib-Ribbon (Europe) (En,Fr,De,Es,It).cue" -o "Vib-Ribbon (Europe) (En,Fr,De,Es,It).chd"</kbd>
-
-<br><br>
-<label for="disc-select-file">Upload a disc image:</label>
-<input type=file id="disc-select-file" multiple />
-<br>
-<label for="type-arguments">Type arguments:</label><br>
-<textarea id="type-arguments" placeholder="help createcd" rows="5" cols="80"></textarea>
-<br>
 <p>Usage info:
 <pre><samp>
 chdman - MAME Compressed Hunks of Data (CHD) manager
@@ -53,19 +64,33 @@ Usage:
 For help with any command, run:
    chdman help &lt;command&gt;
 </samp></pre>
-</p>
+</div>
+<div class=grid-child>
+<label for="disc-select-file">Upload a disc image:</label>
+<input type=file id="disc-select-file" multiple />
+<br>
+<label for="type-arguments">Type arguments:</label><br>
+<textarea id="type-arguments" placeholder="help createcd" rows="5" cols="80"></textarea>
+<br>
 <button id=run>Run</button>
 <br>
-<label for=status>Status:</label> <output id=status></output>
-<br>
 <button id=dl-file>Download Output Files</button>
-<!--
+</div>
+<div class=grid-child>
+<label for=status>Status:</label> <output id=status></output>
 <br>
 <label for=cmd-out>chdman command-line output:</label><br>
 <output id=cmd-out></output><br>
 <button id=clr-cmd>clear output</button>
--->
+</div>
+</div>
 <script>
+const originalConsoleLog = console.log;
+const logElem = document.getElementById("cmd-out");
+console.log = function (message) {
+	originalConsoleLog(message);
+	logElem.value += message + "\n";
+}
 var chdmanModule = "empty";
 const statusElem=document.getElementById("status");
 async function runWrapper() {
@@ -108,8 +133,12 @@ function dlFileWrapper(){ // download all files in the current MEMFS directory.
 		}
 	}
 }
+function clearOutputWrapper(){
+	logElem.value = "";
+}
 document.querySelector("button#run").addEventListener("click", runWrapper)
 document.querySelector("button#dl-file").addEventListener("click", dlFileWrapper)
+document.querySelector("button#clr-cmd").addEventListener("click", clearOutputWrapper)
 
 function download(file) { // to do: replace the file argument with blob and name?
 	const link = document.createElement('a')
